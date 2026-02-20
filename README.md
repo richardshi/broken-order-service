@@ -55,3 +55,18 @@ During peak events, OPS agents face a backlog of "broken orders" that require re
 - Human Task Queue
   - Tasks created by workflows to request approval/decision
   - Approvals resume workflows with structured inputs
+
+# Setting up
+### Pre-request
+1. Install golang
+2. Install postgres
+3. Install temporal package
+
+### Run temporal and postgres in docker
+1. In broken-order-service folder, run
+2. `sudo docker compose up -d` 
+3. `sudo docker compose ps`
+
+### Run temporal worker and starter
+1. In terminal 1, run `go run ./cmd/worker`
+2. In terminal 2, run `go run ./cmd/starter -order ORDER-001`
