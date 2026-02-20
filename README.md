@@ -38,28 +38,44 @@ During peak events, OPS agents face a backlog of "broken orders" that require re
 4. Workflow updates status + appends to audit log
 
 ### **Components**
-- Workflow Orchestrator (Using Temporal for prototype can be simplified if needed)
-  - Better than db state machine, for the built-in features, durable state when restarted, visibility, clean pattern and fewer edge-cases
-- Playbook Engine
-  - Easier to scale and manage than a hardcoded switch case.
-  - Maps issue types → ordered steps + guardrails
-  - Designed to be configurable
-- Tool Adapters (Activities)
-  - Better boundaries and easier to test. Examples:
-    - OrderAdapter: purchase details, listing, seats
-    - TransferAdapter: transfer status, retry transfer
-    - SupplierAdapter: communication history, send ping
-    - PaymentAdapter: compute refund/adjustment, execute refund (mocked)
-- Case File Store
-  - Materialized summary of the order context (single view of truth for ops)
-- Human Task Queue
-  - Tasks created by workflows to request approval/decision
-  - Approvals resume workflows with structured inputs
+Workflow Orchestrator (Using Temporal for prototype)
+Temporal is used to represent the resolution process as a durable workflow per order. It provides:
+- Durable state across restarts
+- Built-in retries/timeouts
+- A clear human-in-the-loop pattern (signal to resume)
+- Visibility into workflow history and execution state
+In some cases, this could also be implemented as a DB-backed state machine, but Temporal reduces edge cases and simplifies operational correctness.
+
+Playbook Engine (hardcoded for prototype)
+Playbook logic is currently hardcoded (minimal MVP), but structured so it can evolve into a configurable system:
+- Issue type → ordered steps and guardrails
+- Bounded retries and stop conditions
+- Escalation to human tasks on uncertainty or risk
+
+
+Activities
+Activities represent “tool calls” the workflow can execute. In production these would wrap internal services or external providers. Using adapters provides:
+- Clean boundaries
+- Testability via mocks
+- Centralized reliability policies per downstream dependency
+Example adapters (mocked in this prototype):
+- OrderAdapter: purchase details, listing, seat info
+- TransferAdapter: transfer status, retry transfe
+- SupplierAdapter: comms history, send ping
+- PaymentAdapter: compute refund/adjustment, issue refund
+
+Case File Store
+- Materialized summary of the order context (single view of truth for ops). (Currently saved in Temporal execution for prototype)
+Human Task Queue
+- Tasks created by workflows to request approval/decision. (Currently saved in Temporal execution for prototype)
+- Approvals resume workflows with structured inputs. (Continue and completethe Temporal execution)
 
 ### Service Architecture
+Both the API/UI and the worker communicate with the Temporal Server:
 `[API/CLI] ----> [Temporal Server] <---- [Temporal Worker]`
 `[UI/Tools] ----> [Temporal Server] <---- [Temporal Worker]`
-
+- API starts workflows, queries workflow state (case_file/pending_task/audit_log), and sends signals for task decisions.
+- Worker executes workflow and activity code.
 
 
 # Setting up
@@ -97,3 +113,29 @@ View workflow executions in the default namespace: `http://localhost:8080/namesp
    1. Task tab: that we have tried, but still require human review/actions.
    2. Search tab: find workflow executions by order id.
    3. Workflow detail view: shows detail case file(aggregated order context) and the audit logs.
+
+## Future Improvements
+### 1. Real integrations and reliability policies
+Replace mock adapters with real integrations and add reliability patterns:
+- Per-adapter timeouts, retries, circuit breakers
+- Rate limiting / backpressure to avoid hammering providers during spikes
+- Error classification (retryable vs non-retryable) and escalation rules
+
+### 2. Richer playbooks and more issue types
+Add more broken-order types and configurable playbooks:
+- Seat mismatch / partial fulfillment
+- Supplier cannot fulfill / replacement sourcing
+- Delivery method constraints (transfer disabled until event, etc.)
+- Move from hardcoded branching to config-driven playbooks (JSON/YAML) once stable. 
+
+### 3.AI/agentic assist (optional and gated)
+Add an LLM layer for:
+- Data extaction and classification using LLM agents
+- Case summary drafting (“what happened / what we tried / recommended next step”)
+- Suggested actions within strict tool permission boundaries
+- Include an evaluation harness (golden cases + rubric) to ensure correctness and safety.
+
+### 4.Security and access control
+- Auth/RBAC for Ops tools and approvals
+- Audit immutability requirements
+- Policy enforcement for high-risk actions (refund thresholds, VIP handling, etc.)

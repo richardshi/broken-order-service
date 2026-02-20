@@ -78,7 +78,7 @@ func ResolveBrokenOrder(ctx workflow.Context, orderID string) (string, error) {
 
 	// Simple playbook (hardcoded for prototype): if issue is TRANSFER_FAILED, create human task to retry transfer.
 	// In a real system, this would be more complex with branching logic, multiple task types, etc.
-	if cf.IssueType == "TRANSFER_FAILED" {
+	if cf.IssueType == modal.IssueTransferFailed {
 		const maxAttempts = 3
 		for attempt := 1; attempt <= maxAttempts; attempt++ {
 			if state.CaseFile.TransferStatus == modal.TransferAccepted {
@@ -142,29 +142,6 @@ func ResolveBrokenOrder(ctx workflow.Context, orderID string) (string, error) {
 	}
 
 	// For other issue types, we can add more logic here. For now, just return resolved for unsupported issue types.
-
-	// Wait for task decision signal (e.g. from API when human completes task).
-	/*
-			var decision modal.TaskDecision
-			sigCh := workflow.GetSignalChannel(ctx, TaskDecisionSignal)
-
-			for {
-				sigCh.Receive(ctx, &decision)
-				// Ignore decisions for other tasks (future-proofing)
-				if state.PendingTask != nil && decision.TaskID == state.PendingTask.ID {
-					break
-				}
-				appendAudit("SIGNAL_IGNORED", "received decision for unknown task", map[string]any{"taskId": decision.TaskID})
-			}
-
-		appendAudit("TASK_DECIDED", "human task decided", map[string]any{
-			"taskId":   decision.TaskID,
-			"approved": decision.Approved,
-			"notes":    decision.Notes,
-			"decider":  decision.Decider,
-		})
-		state.PendingTask = nil
-	*/
 
 	appendAudit("DONE", "workflow completed after human decision", map[string]any{"result": "ESCALATED_REJECTED"})
 	return "ESCALATED_REJECTED", nil

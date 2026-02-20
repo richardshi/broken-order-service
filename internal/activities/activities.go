@@ -21,7 +21,7 @@ func (a *Activities) BuildCaseFile(ctx context.Context, orderID string) (modal.C
 		OrderID:        orderID,
 		IssueType:      modal.IssueTransferFailed,
 		BuyerEmail:     "richardshi2342+buyer+test1@gmail.com",
-		TransferStatus: modal.TransferAccepted,
+		TransferStatus: modal.TransferNotAccepted,
 		AttemptCount:   0,
 		GeneratedAt:    time.Now().UTC(),
 	}

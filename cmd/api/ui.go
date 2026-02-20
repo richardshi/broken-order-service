@@ -52,69 +52,7 @@ func registerUIRoutes(r chi.Router, tc client.Client) {
 	r.Post("/ui/wf/{workflowId}/decision", s.handleDecision)
 }
 
-/*
-func (s *uiServer) handleIndex(w http.ResponseWriter, r *http.Request) {
-	tab := r.URL.Query().Get("tab")
-	if tab == "" {
-		tab = "tasks"
-	}
-	q := r.URL.Query().Get("q")
-
-	data := uiIndexData{Tab: tab, Query: q}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	// List open workflows: CloseTime = missing returns open workflows. In production, we want pagination and better filtering (e.g. by OrderID), but for demo purposes this is sufficient.
-	resp, err := s.tc.ListWorkflow(ctx, &workflowservice.ListWorkflowExecutionsRequest{
-		// ry:    "CloseTime is null",
-		PageSize: 200,
-	})
-	if err != nil {
-		data.Error = err.Error()
-		_ = s.t.ExecuteTemplate(w, "index", data)
-		return
-	}
-
-	// For MVP: iterate and query each workflow for pending task / casefile.
-	for _, ex := range resp.Executions {
-		if ex.Execution == nil {
-			continue
-		}
-		wid := ex.Execution.WorkflowId
-		rid := ex.Execution.RunId
-
-		task, _ := s.queryPendingTask(r.Context(), wid, rid)
-
-		if tab == "tasks" {
-			if task.ID != "" {
-				data.Tasks = append(data.Tasks, uiTaskRow{
-					WorkflowID: wid,
-					RunID:      rid,
-					Task:       task,
-				})
-			}
-			continue
-		}
-
-		// tab == "search"
-		if q == "" {
-			continue
-		}
-		cf, _ := s.queryCaseFile(r.Context(), wid, rid)
-		if cf.OrderID == q {
-			data.Hits = append(data.Hits, uiTaskRow{
-				WorkflowID: wid,
-				RunID:      rid,
-				Task:       task, // may be empty if no task
-			})
-		}
-	}
-
-	_ = s.t.ExecuteTemplate(w, "index", data)
-}
-*/
-
+// handleIndex lists workflows and their pending tasks (if any). It also supports searching by OrderID via visibility query.
 func (s *uiServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	tab := r.URL.Query().Get("tab")
 	if tab == "" {
@@ -210,6 +148,7 @@ func (s *uiServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 	_ = s.t.ExecuteTemplate(w, "index", data)
 }
 
+// handleDetail shows workflow details: casefile, pending task (if any), and audit log.
 func (s *uiServer) handleDetail(w http.ResponseWriter, r *http.Request) {
 	wid := chi.URLParam(r, "workflowId")
 	rid := r.URL.Query().Get("runId")
@@ -233,6 +172,7 @@ func (s *uiServer) handleDetail(w http.ResponseWriter, r *http.Request) {
 	_ = s.t.ExecuteTemplate(w, "detail", data)
 }
 
+// handleDecision handles form submission for human task decision (approve/reject).
 func (s *uiServer) handleDecision(w http.ResponseWriter, r *http.Request) {
 	wid := chi.URLParam(r, "workflowId")
 	rid := r.URL.Query().Get("runId")
@@ -261,9 +201,12 @@ func (s *uiServer) handleDecision(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Refresh page after decision.
+	// In a real UI, we would want to handle this more elegantly (e.g. AJAX + partial refresh), but for MVP this is sufficient.
 	http.Redirect(w, r, "/ui/wf/"+wid+"?runId="+rid, http.StatusSeeOther)
 }
 
+// queryCaseFile queries the workflow for the current case file. This is a UI-grade query and may be slow if there are many workflows or large case files. In production, we would want to optimize this (e.g. by maintaining a separate read model in a database).
 func (s *uiServer) queryCaseFile(ctx context.Context, wid, rid string) (modal.CaseFile, error) {
 	cctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -276,6 +219,7 @@ func (s *uiServer) queryCaseFile(ctx context.Context, wid, rid string) (modal.Ca
 	return cf, qr.Get(&cf)
 }
 
+// queryPendingTask queries the workflow for the current pending human task (if any).
 func (s *uiServer) queryPendingTask(ctx context.Context, wid, rid string) (modal.HumanTask, error) {
 	cctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -288,6 +232,7 @@ func (s *uiServer) queryPendingTask(ctx context.Context, wid, rid string) (modal
 	return t, qr.Get(&t)
 }
 
+// queryAudit queries the workflow for the audit log.
 func (s *uiServer) queryAudit(ctx context.Context, wid, rid string) ([]modal.AuditEvent, error) {
 	cctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -300,11 +245,13 @@ func (s *uiServer) queryAudit(ctx context.Context, wid, rid string) ([]modal.Aud
 	return events, qr.Get(&events)
 }
 
+// prettyJSON is a helper function to render structs as pretty-printed JSON in the templates for easier debugging. In a real application, we would want to handle this more robustly (e.g. handle errors, sanitize output, etc.).
 func prettyJSON(v any) template.HTML {
 	b, _ := json.MarshalIndent(v, "", "  ")
 	return template.HTML("<pre>" + template.HTMLEscapeString(string(b)) + "</pre>")
 }
 
+// uiTemplates contains HTML templates for the UI pages. In a real application, these would be in separate .html files.
 const uiTemplates = `
 {{define "index"}}
 <!doctype html>
