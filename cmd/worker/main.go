@@ -22,8 +22,10 @@ func main() {
 	// Register workflow + activities (core worker pattern). :contentReference[oaicite:8]{index=8}
 	w.RegisterWorkflow(workflows.ResolveBrokenOrder)
 
+	// Register function activities that can be called from workflows.
 	a := &activities.Activities{}
-	w.RegisterActivity(a)
+	w.RegisterActivity(a.BuildCaseFile)
+	w.RegisterActivity(a.RetryTransfer)
 
 	log.Printf("worker started (taskQueue=%s)\n", workflows.TaskQueue)
 	if err := w.Run(worker.InterruptCh()); err != nil {

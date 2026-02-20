@@ -121,6 +121,22 @@ func ResolveBrokenOrder(ctx workflow.Context, orderID string) (string, error) {
 		state.PendingTask = task
 		appendAudit("HUMAN_TASK_CREATED", "created human task for manual review after retries", nil)
 		logger.Info("human task created for manual review after retries", "orderID", orderID)
+
+		var decision modal.TaskDecision
+		selector := workflow.NewSelector(ctx)
+		sigCh := workflow.GetSignalChannel(ctx, TaskDecisionSignal)
+
+		selector.AddReceive(sigCh, func(c workflow.ReceiveChannel, more bool) {
+			c.Receive(ctx, &decision)
+		})
+
+		for decision.TaskID != task.ID {
+			selector.Select(ctx) // <-- yields; no busy-spin
+		}
+		if decision.Approved {
+			appendAudit("DONE", "workflow completed after human decision", map[string]any{"result": "ESCALATED_APPROVED"})
+			return "ESCALATED_APPROVED", nil
+		}
 		return "PENDING_MANUAL_REVIEW", nil
 
 	}
@@ -128,30 +144,28 @@ func ResolveBrokenOrder(ctx workflow.Context, orderID string) (string, error) {
 	// For other issue types, we can add more logic here. For now, just return resolved for unsupported issue types.
 
 	// Wait for task decision signal (e.g. from API when human completes task).
-	var decision modal.TaskDecision
-	sigCh := workflow.GetSignalChannel(ctx, TaskDecisionSignal)
+	/*
+			var decision modal.TaskDecision
+			sigCh := workflow.GetSignalChannel(ctx, TaskDecisionSignal)
 
-	for {
-		sigCh.Receive(ctx, &decision)
-		// Ignore decisions for other tasks (future-proofing)
-		if state.PendingTask != nil && decision.TaskID == state.PendingTask.ID {
-			break
-		}
-		appendAudit("SIGNAL_IGNORED", "received decision for unknown task", map[string]any{"taskId": decision.TaskID})
-	}
+			for {
+				sigCh.Receive(ctx, &decision)
+				// Ignore decisions for other tasks (future-proofing)
+				if state.PendingTask != nil && decision.TaskID == state.PendingTask.ID {
+					break
+				}
+				appendAudit("SIGNAL_IGNORED", "received decision for unknown task", map[string]any{"taskId": decision.TaskID})
+			}
 
-	appendAudit("TASK_DECIDED", "human task decided", map[string]any{
-		"taskId":   decision.TaskID,
-		"approved": decision.Approved,
-		"notes":    decision.Notes,
-		"decider":  decision.Decider,
-	})
-	state.PendingTask = nil
+		appendAudit("TASK_DECIDED", "human task decided", map[string]any{
+			"taskId":   decision.TaskID,
+			"approved": decision.Approved,
+			"notes":    decision.Notes,
+			"decider":  decision.Decider,
+		})
+		state.PendingTask = nil
+	*/
 
-	if decision.Approved {
-		appendAudit("DONE", "workflow completed after human decision", map[string]any{"result": "ESCALATED_APPROVED"})
-		return "ESCALATED_APPROVED", nil
-	}
 	appendAudit("DONE", "workflow completed after human decision", map[string]any{"result": "ESCALATED_REJECTED"})
 	return "ESCALATED_REJECTED", nil
 }

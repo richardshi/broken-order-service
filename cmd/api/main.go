@@ -39,13 +39,15 @@ func main() {
 			return
 		}
 
-		// Use a unique workflow ID so you can rerun easily during dev
+		// Unique workflow ID: for demo, use "resolve-<orderID>-<timestamp>"
+		
 		wid := "resolve-" + req.OrderID + "-" + time.Now().UTC().Format("20060102T150405.000Z")
 
 		opts := client.StartWorkflowOptions{
-			ID:                       wid,
-			TaskQueue:                workflows.TaskQueue,
-			WorkflowExecutionTimeout: 5 * time.Minute,
+			ID:                                       wid,
+			TaskQueue:                                workflows.TaskQueue,
+			WorkflowExecutionTimeout:                 1 * time.Minute,
+			WorkflowExecutionErrorWhenAlreadyStarted: true,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -152,6 +154,7 @@ func main() {
 		writeJSON(w, map[string]any{"ok": true})
 	})
 
+	registerUIRoutes(r, tc)
 	log.Println("api listening on :8090")
 	log.Fatal(http.ListenAndServe(":8090", r))
 }

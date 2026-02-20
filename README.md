@@ -63,17 +63,37 @@ During peak events, OPS agents face a backlog of "broken orders" that require re
 
 
 # Setting up
-### Pre-request
-1. Install golang
-2. Install postgres
-3. Install docker
-4. Install golang temporal package
+### Prerequisites
+- Go (1.22+ recommended)
+- Docker + Docker Compose
+- (Optional) PostgreSQL installed locally is not required — Postgres is started via Docker for Temporal persistence.
+- Go dependencies are managed by `go mod`(temporal and chi. No separate package install step needed beyond go mod tidy)
 
 ### Run temporal and postgres in docker
-1. In broken-order-service folder, run
-2. `sudo docker compose up -d` 
-3. `sudo docker compose ps`
+From the repo root:
+1. Start the Temporal stack (Temporal Server + Postgres + Temporal UI): `sudo docker compose up -d` 
+2. To check temporal and postgres status, run: `sudo docker compose ps`
+3. Note: The Docker Compose file uses a named volume, so Temporal/Postgres data persists across container restarts. To fully reset data, run: `sudo docker compose down -v`
 
-### Run temporal worker and starter
+### Run temporal worker and API
 1. In terminal 1, run `go run ./cmd/worker`
-2. In terminal 2, run `go run ./cmd/starter -order ORDER-001`
+2. In terminal 2, run `go un ./cmd/api`
+
+### Trigger demo workflows(Sample events) 
+In terminal 3, run event test. For example: 
+   1. Success request: `curl -s -X POST localhost:8090/workflows/start \
+   -H 'Content-Type: application/json' \
+   -d '{"orderId":"ORDER-42"}'`
+   2. Failed request: `curl -s -X POST localhost:8090/workflows/start \
+  -H 'Content-Type: application/json' \
+  -d '{"orderId":"ORDER-FAIL-1"}'`
+
+
+### UI tools
+This repo exposes two UIs:
+1. Temporal Web UI (workflow visibility and debugging)
+View workflow executions in the default namespace: `http://localhost:8080/namespaces/default/workflows`
+2. MVP Ops Dashboard (prototype internal tool): `http://localhost:8090/ui`
+   1. Task tab: that we have tried, but still require human review/actions.
+   2. Search tab: find workflow executions by order id.
+   3. Workflow detail view: shows detail case file(aggregated order context) and the audit logs.
