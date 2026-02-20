@@ -28,7 +28,7 @@ During peak events, OPS agents face a backlog of "broken orders" that require re
 
 ## **Architecture**
 ### **High-level flow**
-1. Broken order event is received (mocked in prototype, using kafka/SQS in production for retries and balancing)
+1. Broken order event is received with idemptency key (mocked in prototype, using kafka/SQS in production for retries and balancing)
 2. Orchestrator starts a workflow per order
 3. Workflow calls activities(tool adapters) to:
    1. fetch context (gather all context in prototype. UI can be optimized depending on the issue type).
@@ -56,11 +56,18 @@ During peak events, OPS agents face a backlog of "broken orders" that require re
   - Tasks created by workflows to request approval/decision
   - Approvals resume workflows with structured inputs
 
+### Service Architecture
+`[API/CLI] ----> [Temporal Server] <---- [Temporal Worker]`
+`[UI/Tools] ----> [Temporal Server] <---- [Temporal Worker]`
+
+
+
 # Setting up
 ### Pre-request
 1. Install golang
 2. Install postgres
-3. Install temporal package
+3. Install docker
+4. Install golang temporal package
 
 ### Run temporal and postgres in docker
 1. In broken-order-service folder, run

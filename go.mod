@@ -2,7 +2,10 @@ module broken-order-service
 
 go 1.25.7
 
-require go.temporal.io/sdk v1.40.0
+require (
+	github.com/go-chi/chi/v5 v5.2.5
+	go.temporal.io/sdk v1.40.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
