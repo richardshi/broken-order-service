@@ -75,7 +75,7 @@ func (s *uiServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 		query = `ExecutionStatus = "Running"`
 	case "search":
 		// Search ALL executions by orderID by leveraging WorkflowId prefix:
-		// e.g. resolve-ORDER-42-<timestamp>
+		// e.g. resolve-ORDER-42
 		// STARTS_WITH is supported for Keyword attributes like WorkflowId. :contentReference[oaicite:1]{index=1}
 		if q == "" {
 			// No query => return empty results fast

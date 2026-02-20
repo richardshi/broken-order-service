@@ -11,6 +11,7 @@ import (
 	"broken-order-service/internal/workflows"
 
 	"github.com/go-chi/chi/v5"
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 )
 
@@ -32,6 +33,8 @@ func main() {
 
 	r := chi.NewRouter()
 
+	// Start a workflow execution for a given orderID.
+	// In production, we would want to trigger this from an API call or message queue event rather than a manual HTTP endpoint.
 	r.Post("/workflows/start", func(w http.ResponseWriter, r *http.Request) {
 		var req startReq
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.OrderID == "" {
@@ -39,15 +42,18 @@ func main() {
 			return
 		}
 
-		// Unique workflow ID: for demo, use "resolve-<orderID>-<timestamp>"
-		
-		wid := "resolve-" + req.OrderID + "-" + time.Now().UTC().Format("20060102T150405.000Z")
+		// Unique workflow ID: for demo, use "resolve-<orderID>".
+		// To keep the idempotency of this endpoint, we set WorkflowExecutionErrorWhenAlreadyStarted: true, so if a workflow with the same ID is already running, it will return an error instead of starting a new one. In production, we would want a more robust strategy for generating unique workflow IDs and handling duplicates (e.g. by checking for existing workflows first, or by allowing multiple workflows per order with different IDs).
+		// In production, we might need to handle multiple workflows for the same order (e.g. if we want to allow multiple attempts to resolve the same order issue), in which case we would need a more robust strategy for generating unique workflow IDs and correlating them with orders (e.g. by using a combination of orderID and a timestamp or a UUID).
+		// In that case, we can also consider passing event_id(UUID) and order_id as workflow input, and use event_id as workflow ID for uniqueness, and order_id for querying and correlation.
+		wid := "resolve-" + req.OrderID
 
 		opts := client.StartWorkflowOptions{
 			ID:                                       wid,
 			TaskQueue:                                workflows.TaskQueue,
 			WorkflowExecutionTimeout:                 1 * time.Minute,
 			WorkflowExecutionErrorWhenAlreadyStarted: true,
+			WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

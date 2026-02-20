@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 )
 
@@ -31,6 +32,7 @@ func main() {
 		TaskQueue:                                workflows.TaskQueue,
 		WorkflowExecutionTimeout:                 1 * time.Minute,
 		WorkflowExecutionErrorWhenAlreadyStarted: true,
+		WorkflowIDReusePolicy:                    enums.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE,
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
